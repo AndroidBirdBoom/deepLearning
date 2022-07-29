@@ -128,3 +128,20 @@ def model(X_train, Y_train, X_test, Y_test, num_iterations=2000, learning_rate=0
 
 
 # d = model(train_set_x, train_set_y, test_set_x, test_set_y, num_iterations=2000, learning_rate=0.005, print_cost=True)
+
+if __name__ == "__main__":
+    #训练集图片， 训练集标签， 测试集图片，测试集标签，分类标签文本描述
+    train_set_x_pic, train_set_y, test_set_x_pic, test_set_y, classes = load_dataset()
+    # 查看一下图片
+    plt.imshow(train_set_x_pic[0])
+    plt.show()
+
+    print('训练集大小:', train_set_x_pic.shape[0])
+    print('测试集大小:', test_set_x_pic.shape[0])
+    print('图片的大小:', train_set_x_pic.shape[1:])
+
+    train_set_x_flatten = train_set_x_pic.reshape(train_set_x_pic.shape[0], -1).T
+    test_set_x_flatten = test_set_x_pic.reshape(test_set_x_pic.shape[0], -1).T
+    # 标准化RGB颜色，因此原值范围较大，标准化到0~1之间
+    train_set_x = train_set_x_flatten / 255
+    test_set_x = test_set_x_flatten / 255
