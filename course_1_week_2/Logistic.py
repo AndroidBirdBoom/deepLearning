@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 from course_1_week_2.lr_utils import load_dataset
+import io
+
 
 # 训练集图片， 训练集标签， 测试集图片，测试集标签，分类标签文本描述
 # train_set_x_pic, train_set_y, test_set_x_pic, test_set_y, classes = load_dataset()
@@ -87,6 +89,7 @@ def optimize(w, b, X, Y, iterations_times, learning_rate, print_cost=False):
         if print_cost and i % 100 == 0:
             print('迭代次数：%i，误差值：%f' % (i, cost))
 
+
     return w, b, costs
 
 
@@ -130,7 +133,7 @@ def model(X_train, Y_train, X_test, Y_test, num_iterations=2000, learning_rate=0
 # d = model(train_set_x, train_set_y, test_set_x, test_set_y, num_iterations=2000, learning_rate=0.005, print_cost=True)
 
 if __name__ == "__main__":
-    #训练集图片， 训练集标签， 测试集图片，测试集标签，分类标签文本描述
+    # 训练集图片， 训练集标签， 测试集图片，测试集标签，分类标签文本描述
     train_set_x_pic, train_set_y, test_set_x_pic, test_set_y, classes = load_dataset()
     # 查看一下图片
     plt.imshow(train_set_x_pic[0])
@@ -142,6 +145,21 @@ if __name__ == "__main__":
 
     train_set_x_flatten = train_set_x_pic.reshape(train_set_x_pic.shape[0], -1).T
     test_set_x_flatten = test_set_x_pic.reshape(test_set_x_pic.shape[0], -1).T
+
+    print('train_set_x_flatten', train_set_x_flatten.shape)
+    print('test_set_x_flatten', test_set_x_flatten.shape)
+
     # 标准化RGB颜色，因此原值范围较大，标准化到0~1之间
     train_set_x = train_set_x_flatten / 255
     test_set_x = test_set_x_flatten / 255
+
+    wb, db, costs = model(train_set_x, train_set_y, test_set_x, test_set_y, num_iterations=100, learning_rate=0.5,
+                          print_cost=True)
+
+    print('costs = ', np.sum(costs))
+    # learning_rates = [0.01, 0.005, 0.001, 0.0005, 0.0001]
+    # for i in learning_rates:
+    #     w, b, costs = model(train_set_x, train_set_y, test_set_x, test_set_y, 2000, i, True)
+    #     plt.plot(np.squeeze(costs))
+    #
+    # plt.show()
