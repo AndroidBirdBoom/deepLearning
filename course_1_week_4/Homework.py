@@ -325,6 +325,8 @@ n_h = 7
 n_y = 1
 layers_dims = (n_x, n_h, n_y)
 
+layers_dims = [12288, 20, 7, 5, 1]
+
 parameters = two_layer_model(train_x, train_set_y, layers_dims=(n_x, n_h, n_y), num_iterations=2500, print_cost=True,
                              isPlot=True)
 """
