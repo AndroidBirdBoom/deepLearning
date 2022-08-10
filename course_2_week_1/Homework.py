@@ -160,8 +160,8 @@ def model(X, Y, learning_rate=0.01, num_iteration=15000, print_cost=True, initia
 
 # 正则化
 # 首先是读取数据
-# train_X, train_Y, test_X, test_Y = reg_utils.load_2D_dataset()
-# plt.show()
+train_X, train_Y, test_X, test_Y = reg_utils.load_2D_dataset()
+plt.show()
 
 
 def compute_cost_with_regularization(A3, Y, parameters, lambd):

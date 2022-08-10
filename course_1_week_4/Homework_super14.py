@@ -60,7 +60,7 @@ def initialize_parameters_deep(layer_dims):
         if i == 0:
             continue
         else:
-            parameters[str('W%d' % i)] = np.random.randn(layer_dims[i], layer_dims[i - 1]) * 0.01
+            parameters[str('W%d' % i)] = np.random.randn(layer_dims[i], layer_dims[i - 1])  * np.sqrt(2.0 / layers_dims[i - 1])
             parameters[str('b%d' % i)] = np.zeros((layer_dims[i], 1))
     return parameters
 
@@ -181,8 +181,8 @@ def linear_backward(dZ, cache):
     m = dZ.shape[1]
     A_prev, W, b = cache[0], cache[1], cache[2]
     dA_prev = np.dot(W.T, dZ)
-    dW = np.dot(dZ, A_prev.T) / m
-    db = np.sum(dZ, axis=1, keepdims=True) / m
+    dW = np.dot(dZ, A_prev.T)
+    db = np.sum(dZ, axis=1, keepdims=True)
     return dA_prev, dW, db
 
 
@@ -245,7 +245,8 @@ def L_model_backward(AL, Y, caches):
     """
     L = len(caches)
     grads = {}
-    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
+    m = Y.shape[1]
+    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) / m
 
     for i in range(L, 0, -1):
         if i == L:
@@ -274,7 +275,8 @@ def update_parameters(parameters, grads, learning_rate):
                   parameters["W" + str(l)] = ...
                   parameters["b" + str(l)] = ...
     """
-    for i in range(len(parameters) // 2):
+    L = len(parameters) // 2
+    for i in range(L):
         parameters['W' + str(i + 1)] -= learning_rate * grads['dW' + str(i + 1)]
         parameters['b' + str(i + 1)] -= learning_rate * grads['db' + str(i + 1)]
     return parameters
