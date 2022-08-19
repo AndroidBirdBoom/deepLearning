@@ -90,7 +90,7 @@ def linear_activation_forward(A_prev, W, b, activation):
     """
     assert activation in ['sigmoid', 'relu']
     Z, linear_cache = linear_forward(A_prev, W, b)
-    if activation is 'sigmoid':
+    if activation == 'sigmoid':
         A, activation_cache = sigmoid(Z)
     else:
         A, activation_cache = relu(Z)

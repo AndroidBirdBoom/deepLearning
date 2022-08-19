@@ -27,14 +27,13 @@ from course_2_week_1 import init_utils  # 第一部分，初始化
 from course_2_week_1 import reg_utils  # 第二部分，正则化
 from course_2_week_1 import gc_utils  # 第三部分，梯度校验
 
-
 # plt.rcParams['figure.figsize'] = (7.0, 4.0)  # set default size of plots
 # plt.rcParams['image.interpolation'] = 'nearest'
 # plt.rcParams['image.cmap'] = 'gray'
 
 # 初始化数据
-# train_X, train_Y, test_X, test_Y = init_utils.load_dataset(is_plot=True)
-# plt.show()
+train_X, train_Y, test_X, test_Y = init_utils.load_dataset(is_plot=True)
+plt.show()
 
 
 def initialize_parameters_zeros(layers_dims):
@@ -554,3 +553,10 @@ def gradient_check_n(parameters, gradients, X, Y, epsilon=1e-7):
         print("梯度检查：梯度超出阈值!")
 
     return difference
+
+if __name__ == "__main__":
+    layers_dims = [train_X.shape[0], 20, 3, 1]
+    parameters = reg_utils.initialize_parameters(layers_dims)
+    a3, cache = init_utils.forward_propagation(train_X, parameters)
+    grads = reg_utils.backward_propagation(train_X,train_Y,cache)
+    gradient_check_n(parameters,grads,train_X,train_Y)

@@ -6,7 +6,6 @@ from course_1_week_4.testCases import linear_forward_test_case, linear_backward_
     linear_activation_forward_test_case, linear_activation_backward_test_case, L_model_forward_test_case, \
     compute_cost_test_case, L_model_backward_test_case, update_parameters_test_case
 
-np.random.seed(1)
 
 def load_dataset():
     train_dataset = h5py.File('datasets/train_catvnoncat.h5', "r")
@@ -60,7 +59,7 @@ def initialize_parameters_deep(layer_dims):
         if i == 0:
             continue
         else:
-            parameters[str('W%d' % i)] = np.random.randn(layer_dims[i], layer_dims[i - 1])  * np.sqrt(2.0 / layers_dims[i - 1])
+            parameters[str('W%d' % i)] = np.random.randn(layer_dims[i], layer_dims[i - 1]) * 0.01
             parameters[str('b%d' % i)] = np.zeros((layer_dims[i], 1))
     return parameters
 
@@ -161,7 +160,10 @@ def compute_cost(AL, Y):
     cost -- cross-entropy cost
     """
     m = Y.shape[1]
-    cost = -(np.dot(Y, np.log(AL).T) + np.dot(1 - Y, np.log(1 - AL).T)) / m
+    cost = -np.sum(np.multiply(np.log(AL), Y) + np.multiply(np.log(1 - AL), 1 - Y)) / m
+
+    # 矩阵转数组(单个数字)
+    cost = np.squeeze(cost)
     return cost
 
 
@@ -246,7 +248,7 @@ def L_model_backward(AL, Y, caches):
     L = len(caches)
     grads = {}
     m = Y.shape[1]
-    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) / m
+    dAL = - (np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
 
     for i in range(L, 0, -1):
         if i == L:
@@ -297,6 +299,7 @@ def two_layer_model(X, Y, layers_dims, learning_rate=0.0075, num_iterations=3000
     Returns:
     parameters -- a dictionary containing W1, W2, b1, and b2
     """
+    np.random.seed(1)
     costs = []
     parameters = initialize_parameters_deep(layers_dims)
     for i in range(num_iterations):
@@ -342,6 +345,67 @@ def predict(X, y, parameters):
     return p
 
 
+def print_mislabeled_images(classes, X, y, p):
+    """
+	绘制预测和实际不同的图像。
+	    X - 数据集
+	    y - 实际的标签
+	    p - 预测
+    """
+    a = p + y
+    mislabeled_indices = np.asarray(np.where(a == 1))
+    plt.rcParams['figure.figsize'] = (40.0, 40.0)  # set default size of plots
+    num_images = len(mislabeled_indices[0])
+    for i in range(num_images):
+        index = mislabeled_indices[1][i]
+
+        plt.subplot(2, num_images, i + 1)
+        plt.imshow(X[:, index].reshape(64, 64, 3), interpolation='nearest')
+        plt.axis('off')
+        plt.title(
+            "Prediction: " + classes[int(p[0, index])].decode("utf-8") + " \n Class: " + classes[y[0, index]].decode(
+                "utf-8"))
+    plt.show()
+
+
+def load_planar_dataset():
+    np.random.seed(1)  # 设置种子，为后续验证使用
+    m = 400  # 样本数是400
+    N = int(m / 2)  # 此案例分为两个类，每个类的样本数大小
+    D = 2  # 维度
+    a = 4
+    X = np.zeros((m, D))  # x矩阵是一个400*2大小的矩阵
+    y = np.zeros((m, 1))
+
+    for i in range(D):
+        ix = range(i * N, (i + 1) * N)
+        t = np.linspace(i * 3.12, (i + 1) * 3.12, N) + np.random.randn(N) * 0.2  # theta
+        r = a * np.sin(4 * t) + np.random.randn(N) * 0.2  # radius
+        X[ix] = np.c_[r * np.sin(t), r * np.cos(t)]  # == np.hstack((r*np.sin(t),r*np.cos(t)))
+        y[ix] = i
+        # plt.scatter(r * np.sin(t), r * np.cos(t), c='r' if i == 0 else 'b')
+    # plt.show()
+
+    X = X.T
+    y = y.T
+
+    return X, y
+
+
+def plot_decision_boundary(model, X, y):
+    x1_min, x1_max = X[0, :].min() - 1, X[0, :].max() + 1  # 挑选x1的最大最小值，用于绘制plot的x轴
+    x2_min, x2_max = X[1, :].min() - 1, X[1, :].max() + 1  # 挑选x2的最值，用于绘制plot的y轴
+    h = 0.01  # 间隔
+    xx, yy = np.meshgrid(np.arange(x1_min, x1_max, h), np.arange(x2_min, x2_max, h))  # 生成网格
+    # 预测 表格数据
+    Z = model(np.c_[xx.ravel(), yy.ravel()])
+    Z = Z.reshape(xx.shape)
+    plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
+    plt.ylabel('x2')
+    plt.xlabel('x1')
+    plt.scatter(X[0, :], X[1, :], c=y, cmap=plt.cm.Spectral)
+
+
 if __name__ == "__main__":
     train_x_orig, train_y, test_x_orig, test_y, classes = load_dataset()
 
@@ -366,17 +430,25 @@ if __name__ == "__main__":
     4. 后向传播
     5. 预测
     '''
-    # # 2层网络结构（单隐藏层）
-    # n_x = train_x_flatten.shape[0]
-    # n_h = 7
-    # n_y = 1
-    # layers_dims = (n_x, n_h, n_y)
+    # 2层网络结构（单隐藏层）
+    n_x = train_x_flatten.shape[0]
+    n_h = 7
+    n_y = 1
+    layers_dims = (n_x, n_h, n_y)
+    parameters = two_layer_model(train_x, train_y, layers_dims, num_iterations=2500, print_cost=True)
+    pred_train = predict(train_x, train_y, parameters)
+    pred_test = predict(test_x, test_y, parameters)
+
+    # 深层网络结构
+    # layers_dims = [12288, 20, 7, 5, 1]
     # parameters = two_layer_model(train_x, train_y, layers_dims, num_iterations=2500, print_cost=True)
     # pred_train = predict(train_x, train_y, parameters)
     # pred_test = predict(test_x, test_y, parameters)
 
-    # 深层网络结构
-    layers_dims = [12288, 20, 7, 5, 1]
-    parameters = two_layer_model(train_x, train_y, layers_dims, num_iterations=2500, print_cost=True)
-    pred_train = predict(train_x, train_y, parameters)
-    pred_test = predict(test_x, test_y, parameters)
+    # X, y = load_planar_dataset()
+    #
+    # layers_dims = [X.shape[0], 20, 7, 5, 1]
+    # parameters = two_layer_model(X, y, layers_dims, print_cost=True)
+    #
+    # plot_decision_boundary(lambda x: predict(x.T, y, parameters), X, y)
+    # plt.show()

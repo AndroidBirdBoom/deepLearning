@@ -87,7 +87,7 @@ def L_model_backward(AL, Y, caches):
     L = len(caches)
     m = Y.shape[1]
     # 最后一层和其他层用的是两个激活函数，需要分别求
-    dAL = -(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) / m
+    dAL = -np.sum(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) / m
     for i in range(L, 0, -1):
         linear_cache, activation_cache = caches[i - 1]
         if i == L:
@@ -129,6 +129,7 @@ def backward_sigmoid(dA, Z):
 
 # 求dw,db,da_p
 def backward_dWb(dZ, linear_cache):
+    m = dZ.shape[1]
     A_p, W, b = linear_cache
     dA_p = np.dot(W.T, dZ)
     dW = np.dot(dZ, A_p.T)
@@ -140,8 +141,8 @@ def backward_dWb_reg(dZ, linear_cache, lamda):
     m = dZ.shape[1]
     A_p, W, b = linear_cache
     dA_p = np.dot(W.T, dZ)
-    dW = np.dot(dZ, A_p.T) + lamda / m * W
-    db = np.sum(dZ, axis=1, keepdims=True)
+    dW = np.dot(dZ, A_p.T) / m + lamda / m * W
+    db = np.sum(dZ, axis=1, keepdims=True) / m
     return dA_p, dW, db
 
 
@@ -319,7 +320,7 @@ def model_reg(X, Y, learning_rate=0.3, num_iterations=30000, print_cost=True, la
         if keep_prob == 1:
             AL, caches = L_model_forward(X, parameters)
         elif keep_prob < 1:
-            a3, caches = forward_propagation_with_dropout(X, parameters, keep_prob)
+            AL, caches = forward_propagation_with_dropout(X, parameters, keep_prob)
 
         # Cost function
         if lambd == 0:
@@ -360,8 +361,38 @@ def model_reg(X, Y, learning_rate=0.3, num_iterations=30000, print_cost=True, la
     return parameters
 
 
-def forward_propagation_with_dropout():
-    pass
+def forward_propagation_with_dropout(X, parameters, keep_prob):
+    caches = []
+    L = len(parameters) // 2
+    A = X
+    for i in range(L):
+        if i == L - 1:
+            AL, cache = forward_detail_dropout(A, parameters['W' + str(i + 1)], parameters['b' + str(i + 1)], keep_prob,
+                                               "sigmoid")
+        else:
+            A, cache = forward_detail_dropout(A, parameters['W' + str(i + 1)], parameters['b' + str(i + 1)], keep_prob,
+                                              "relu")
+        caches.append(cache)
+    return AL, caches
+
+
+# 前向传播具体实现
+def forward_detail_dropout(A_prev, W, b, keep_prob, activation='relu'):
+    Z, linear_cache = forward_detail_Z(A_prev, W, b)
+    D = []
+    if activation == 'relu':
+        A, activation_cache = forward_relu(Z)
+    elif activation == 'sigmoid':
+        A, activation_cache = forward_sigmoid(Z)
+
+    if activation == "relu":
+        # drop out
+        D = np.random.rand(A.shape[0], A.shape[1])
+        D = D < keep_prob
+        A = A * D
+        A = A / keep_prob
+
+    return A, (linear_cache, activation_cache, D)
 
 
 def compute_cost_with_regularization(AL, Y, parameters, lambd):
@@ -395,8 +426,26 @@ def backward_propagation_with_regularization(AL, Y, caches, lambd):
     return grads
 
 
-def backward_propagation_with_dropout(AL, Y, cache, keep_prob):
-    pass
+def backward_propagation_with_dropout(AL, Y, caches, keep_prob):
+    grads = {}
+    L = len(caches)
+    m = Y.shape[1]
+    # 最后一层和其他层用的是两个激活函数，需要分别求
+    dAL = -(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) / m
+    for i in range(L, 0, -1):
+        linear_cache, activation_cache, D = caches[i - 1]
+        if i == L:
+            dZ = backward_dZ(dAL, activation_cache, 'sigmoid')
+            # dZ = 1. / m * (AL - Y)
+            dA_p, dW, db = backward_dWb(dZ, linear_cache)
+        else:
+            dA_p = dA_p * D
+            dA_p = dA_p / keep_prob
+            dZ = backward_dZ(dA_p, activation_cache, 'relu')
+            dA_p, dW, db = backward_dWb(dZ, linear_cache)
+        grads['dW' + str(i)] = dW
+        grads['db' + str(i)] = db
+    return grads
 
 
 def load_dataset():
@@ -414,6 +463,51 @@ def load_dataset():
     test_set_y_orig = test_set_y_orig.reshape((1, test_set_y_orig.shape[0]))
 
     return train_set_x_orig, train_set_y_orig, test_set_x_orig, test_set_y_orig, classes
+
+
+def gradient_check(x, theta, epsilon=1e-7):
+    """
+    Implement the backward propagation presented in Figure 1.
+
+    Arguments:
+    x -- a real-valued input
+    theta -- our parameter, a real number as well
+    epsilon -- tiny shift to the input to compute approximated gradient with formula(1)
+
+    Returns:
+    difference -- difference (2) between the approximated gradient and the backward propagation gradient
+    """
+
+    # Compute gradapprox using left side of formula (1). epsilon is small enough, you don't need to worry about the limit.
+    ### START CODE HERE ### (approx. 5 lines)
+    thetaplus = x + epsilon  # Step 1
+    thetaminus = x - epsilon  # Step 2
+    J_plus = np.dot(thetaplus, x)  # Step 3
+    J_minus = np.dot(thetaminus, x)  # Step 4
+    gradapprox = (J_plus - J_minus) / (2 * epsilon)  # Step 5
+    ### END CODE HERE ###
+
+    # Check if gradapprox is close enough to the output of backward_propagation()
+    ### START CODE HERE ### (approx. 1 line)
+    grad = x
+    ### END CODE HERE ###
+
+    ### START CODE HERE ### (approx. 1 line)
+    numerator = np.linalg.norm(grad - gradapprox)  # Step 1'
+    denominator = np.linalg.norm(grad) + np.linalg.norm(gradapprox)  # Step 2'
+    difference = numerator / denominator  # Step 3'
+    ### END CODE HERE ###
+
+    if difference < 1e-7:
+        print("The gradient is correct!")
+    else:
+        print("The gradient is wrong!")
+
+    return difference
+
+
+def gradient_check_n(parameters, gradients, X, Y, epsilon=1e-7):
+    pass
 
 
 if __name__ == "__main__":
@@ -456,11 +550,42 @@ if __name__ == "__main__":
     train_X, train_Y, test_X, test_Y = reg_utils.load_2D_dataset()
     plt.show()
 
-    parameters = model_reg(train_X, train_Y,lambd=0.7)
-    print("On the training set:")
-    predictions_train = predict(train_X, train_Y, parameters)
-    print("On the test set:")
-    predictions_test = predict(test_X, test_Y, parameters)
+    # parameters = model_reg(train_X, train_Y,num_iterations=800000,lambd=0.001)
+    # print("On the training set:")
+    # predictions_train = predict(train_X, train_Y, parameters)
+    # print("On the test set:")
+    # predictions_test = predict(test_X, test_Y, parameters)
+    #
+    # plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y, "参数初始化为:")
+    # plt.show()
 
-    plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y, "参数初始化为:")
-    plt.show()
+    epsilon = 1e-7
+    layers_dims = [train_X.shape[0], 20, 3, 1]
+    parameters = initialize_parameters_random(layers_dims)
+    parameters_vector = np.array([])
+    L = len(parameters) // 2
+    for i in range(L):
+        w_vector = parameters['W' + str(i + 1)].reshape(-1, 1)
+        b_vecotr = parameters['b' + str(i + 1)].reahpe(-1, 1)
+        parameters_vector = np.vstack((parameters_vector, w_vector, b_vecotr))
+    AL, caches = L_model_forward(train_X, parameters)
+    grids = L_model_backward(AL, train_Y, caches)
+    grids_vector = np.array([])
+    for i in range(L):
+        dw_vector = grids['dW' + str(i + 1)].reshape(-1, 1)
+        db_vector = grids['db' + str(i + 1)].reshape(-1, 1)
+        grids_vector = np.vstack((grids_vector, dw_vector, db_vector))
+
+    num = parameters_vector.shape[0]
+    gradapprox = np.array([])
+    for i in range(num):
+        cost_plus = 1
+        cost_mi = 0
+        grid = (cost_plus - cost_mi) / (2 * epsilon)
+        gradapprox.append(grid)
+
+    difference = np.linalg.norm(grids_vector - gradapprox) / (np.linalg.norm(grids_vector) + np.linalg.norm(gradapprox))
+    if difference < enumerate:
+        print('OK')
+    else:
+        print('ERROR')
