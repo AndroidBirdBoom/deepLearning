@@ -87,7 +87,7 @@ def L_model_backward(AL, Y, caches):
     L = len(caches)
     m = Y.shape[1]
     # 最后一层和其他层用的是两个激活函数，需要分别求
-    dAL = -np.sum(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL)) / m
+    dAL = -(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
     for i in range(L, 0, -1):
         linear_cache, activation_cache = caches[i - 1]
         if i == L:
@@ -132,8 +132,8 @@ def backward_dWb(dZ, linear_cache):
     m = dZ.shape[1]
     A_p, W, b = linear_cache
     dA_p = np.dot(W.T, dZ)
-    dW = np.dot(dZ, A_p.T)
-    db = np.sum(dZ, axis=1, keepdims=True)
+    dW = np.dot(dZ, A_p.T) / m
+    db = np.sum(dZ, axis=1, keepdims=True) / m
     return dA_p, dW, db
 
 
@@ -210,12 +210,12 @@ def initialize_parameters_zeros(layers_dims):
 def initialize_parameters_random(layers_dims):
     np.random.seed(3)
     parameters = {}
-    for i, e in enumerate(layers_dims):
+    for i, value in enumerate(layers_dims):
         if i == 0:
             continue
         else:
-            parameters['W' + str(i)] = np.random.randn(e, layers_dims[i - 1])
-            parameters['b' + str(i)] = np.zeros((e, 1))
+            parameters['W' + str(i)] = np.random.randn(value, layers_dims[i - 1]) * np.sqrt(2 / layers_dims[i - 1])
+            parameters['b' + str(i)] = np.zeros((value, 1))
     return parameters
 
 
@@ -271,7 +271,7 @@ def plot_decision_boundary(model, X, y, string):
     Z = model(np.c_[xx.ravel(), yy.ravel()])
     Z = Z.reshape(xx.shape)
     plt.contourf(xx, yy, Z, cmap=plt.cm.Spectral)
-    plt.title(string + "条件下的分类情况", fontproperties=font)
+    plt.title(string, fontproperties=font)
     plt.ylabel('x2')
     plt.xlabel('x1')
     plt.scatter(X[0, :], X[1, :], c=y[0], s=10, cmap=plt.cm.Spectral)
@@ -355,7 +355,7 @@ def model_reg(X, Y, learning_rate=0.3, num_iterations=30000, print_cost=True, la
         plt.ylabel('cost')
         plt.xlabel('iterations (per hundreds)')
         plt.title("Learning rate =" + str(learning_rate))
-        plt.show()
+        # plt.show()
 
     # 返回学习完毕后的参数
     return parameters
@@ -550,42 +550,65 @@ if __name__ == "__main__":
     train_X, train_Y, test_X, test_Y = reg_utils.load_2D_dataset()
     plt.show()
 
-    # parameters = model_reg(train_X, train_Y,num_iterations=800000,lambd=0.001)
-    # print("On the training set:")
-    # predictions_train = predict(train_X, train_Y, parameters)
-    # print("On the test set:")
-    # predictions_test = predict(test_X, test_Y, parameters)
-    #
-    # plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y, "参数初始化为:")
+    # 未正则化
+    plt.subplot(2, 3, 1)
+    parameters = model_reg(train_X, train_Y, num_iterations=30000)
+    print("On the training set:")
+    predictions_train = predict(train_X, train_Y, parameters)
+    print("On the test set:")
+    predictions_test = predict(test_X, test_Y, parameters)
+    plt.subplot(2, 3, 4)
+    plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y, "未正则化")
     # plt.show()
 
-    epsilon = 1e-7
-    layers_dims = [train_X.shape[0], 20, 3, 1]
-    parameters = initialize_parameters_random(layers_dims)
-    parameters_vector = np.array([])
-    L = len(parameters) // 2
-    for i in range(L):
-        w_vector = parameters['W' + str(i + 1)].reshape(-1, 1)
-        b_vecotr = parameters['b' + str(i + 1)].reahpe(-1, 1)
-        parameters_vector = np.vstack((parameters_vector, w_vector, b_vecotr))
-    AL, caches = L_model_forward(train_X, parameters)
-    grids = L_model_backward(AL, train_Y, caches)
-    grids_vector = np.array([])
-    for i in range(L):
-        dw_vector = grids['dW' + str(i + 1)].reshape(-1, 1)
-        db_vector = grids['db' + str(i + 1)].reshape(-1, 1)
-        grids_vector = np.vstack((grids_vector, dw_vector, db_vector))
+    # 正则化
+    plt.subplot(2, 3, 2)
+    parameters = model_reg(train_X, train_Y, num_iterations=30000, lambd=0.001)
+    print("On the training set:")
+    predictions_train = predict(train_X, train_Y, parameters)
+    print("On the test set:")
+    predictions_test = predict(test_X, test_Y, parameters)
+    plt.subplot(2, 3, 5)
+    plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y, "L2正则化")
+    # plt.show()
 
-    num = parameters_vector.shape[0]
-    gradapprox = np.array([])
-    for i in range(num):
-        cost_plus = 1
-        cost_mi = 0
-        grid = (cost_plus - cost_mi) / (2 * epsilon)
-        gradapprox.append(grid)
-
-    difference = np.linalg.norm(grids_vector - gradapprox) / (np.linalg.norm(grids_vector) + np.linalg.norm(gradapprox))
-    if difference < enumerate:
-        print('OK')
-    else:
-        print('ERROR')
+    # drop-out 正则化
+    plt.subplot(2, 3, 3)
+    parameters = model_reg(train_X, train_Y, num_iterations=30000, keep_prob=0.9)
+    print("On the training set:")
+    predictions_train = predict(train_X, train_Y, parameters)
+    print("On the test set:")
+    predictions_test = predict(test_X, test_Y, parameters)
+    plt.subplot(2, 3, 6)
+    plot_decision_boundary(lambda x: predict_dec(parameters, x.T), train_X, train_Y, "Dropout 正则化")
+    plt.show()
+    # epsilon = 1e-7
+    # layers_dims = [train_X.shape[0], 20, 3, 1]
+    # parameters = initialize_parameters_random(layers_dims)
+    # parameters_vector = np.array([])
+    # L = len(parameters) // 2
+    # for i in range(L):
+    #     w_vector = parameters['W' + str(i + 1)].reshape(-1, 1)
+    #     b_vecotr = parameters['b' + str(i + 1)].reahpe(-1, 1)
+    #     parameters_vector = np.vstack((parameters_vector, w_vector, b_vecotr))
+    # AL, caches = L_model_forward(train_X, parameters)
+    # grids = L_model_backward(AL, train_Y, caches)
+    # grids_vector = np.array([])
+    # for i in range(L):
+    #     dw_vector = grids['dW' + str(i + 1)].reshape(-1, 1)
+    #     db_vector = grids['db' + str(i + 1)].reshape(-1, 1)
+    #     grids_vector = np.vstack((grids_vector, dw_vector, db_vector))
+    #
+    # num = parameters_vector.shape[0]
+    # gradapprox = np.array([])
+    # for i in range(num):
+    #     cost_plus = 1
+    #     cost_mi = 0
+    #     grid = (cost_plus - cost_mi) / (2 * epsilon)
+    #     gradapprox.append(grid)
+    #
+    # difference = np.linalg.norm(grids_vector - gradapprox) / (np.linalg.norm(grids_vector) + np.linalg.norm(gradapprox))
+    # if difference < enumerate:
+    #     print('OK')
+    # else:
+    #     print('ERROR')

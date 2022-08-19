@@ -28,6 +28,9 @@ import time
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+
+tf.compat.v1.disable_eager_execution()
+
 # 加载数据
 X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, classes = tf_utils.load_dataset()
 
@@ -53,8 +56,8 @@ def create_placeholders(n_x, n_y):
     :param n_y:
     :return:
     """
-    X = tf.placeholder(tf.float32, [n_x, None], name='X')
-    Y = tf.placeholder(tf.float32, [n_y, None], name='Y')
+    X = tf.compat.v1.placeholder(dtype=tf.float32, shape=[n_x, None])
+    Y = tf.compat.v1.placeholder(dtype=tf.float32, shape=[n_y, None])
     return X, Y
 
 
@@ -64,15 +67,14 @@ def initialize_parameters():
     初始化参数
     :return:
     """
+    W1 = tf.compat.v1.get_variable('W1', [25, 12288], initializer=tf.keras.initializers.glorot_normal(seed=1))
+    b1 = tf.compat.v1.get_variable('b1', [25, 1], initializer=tf.zeros_initializer())
 
-    W1 = tf.get_variable('W1', [25, 12288], initializer=tf.contrib.layers.xavier_initializer(seed=1))
-    b1 = tf.get_variable('b1', [25, 1], initializer=tf.zeros_initializer())
+    W2 = tf.compat.v1.get_variable('W2', [12, 25], initializer=tf.keras.initializers.glorot_normal(seed=1))
+    b2 = tf.compat.v1.get_variable('b2', [12, 1], initializer=tf.zeros_initializer())
 
-    W2 = tf.get_variable('W2', [12, 25], initializer=tf.contrib.layers.xavier_initializer(seed=1))
-    b2 = tf.get_variable('b2', [12, 1], initializer=tf.zeros_initializer())
-
-    W3 = tf.get_variable('W3', [6, 12], initializer=tf.contrib.layers.xavier_initializer(seed=1))
-    b3 = tf.get_variable('b3', [6, 1], initializer=tf.zeros_initializer())
+    W3 = tf.compat.v1.get_variable('W3', [6, 12], initializer=tf.keras.initializers.glorot_normal(seed=1))
+    b3 = tf.compat.v1.get_variable('b3', [6, 1], initializer=tf.zeros_initializer())
 
     return {
         'W1': W1,
@@ -157,15 +159,15 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate=0.0001, num_epochs=130
     cost = compute_cost(Z3, Y)
 
     # 反向传播,Adam优化
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
+    optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
-    saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
 
     # 初始化所有的变量
-    init = tf.global_variables_initializer()
+    init = tf.compat.v1.global_variables_initializer()
 
     # 开始会话并计算
-    with tf.Session() as session:
+    with tf.compat.v1.Session() as session:
         session.run(init)
 
         # 循环
@@ -211,16 +213,68 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate=0.0001, num_epochs=130
 
         return parameters
 
+import imageio
 
-# 开始时间
-start_time = time.clock()
-# 开始训练
-parameters = model(X_train, Y_train, X_test, Y_test)
-# 结束时间
-end_time = time.clock()
-# 计算时差
-print("CPU的执行时间 = " + str(end_time - start_time) + " 秒")
 
+def softmax(Z3):
+    z = np.exp(Z3)
+    z_sum = np.sum(z, axis=0)
+    A = z / z_sum
+    return A
+
+def relu(Z):
+    return np.maximum(0, Z), Z
+
+def predict(my_image, parameters):
+    W1 = parameters['W1']
+    b1 = parameters['b1']
+    W2 = parameters['W2']
+    b2 = parameters['b2']
+    W3 = parameters['W3']
+    b3 = parameters['b3']
+    Z1 = np.dot(W1, my_image) + b1
+    A1, _ = relu(Z1)
+    Z2 = np.dot(W2, A1) + b2
+    A2, _ = relu(Z2)
+    Z3 = np.dot(W3, A2) + b3
+    A3 = softmax(Z3)
+
+    m = my_image.shape[1]
+    result = []
+    for i in range(m):
+        result.append(np.argmax(A3[:, i], axis=0))
+
+    return result
+
+
+if __name__=="__main__":
+
+    # 开始时间
+    start_time = time.time()
+    # 开始训练
+    parameters = model(X_train, Y_train, X_test, Y_test)
+    # 结束时间
+    end_time = time.time()
+    # 计算时差
+    print("CPU的执行时间 = " + str(end_time - start_time) + " 秒")
+
+    m = 10
+    images = None
+    for i in range(m):
+        my_image = str(i + 1) + ".png"
+        frame = "test_imgs/" + my_image
+
+        image = np.array(imageio.imread(frame))
+
+        my_image = image.reshape(-1, 1) / 255.
+        print('shape = ', my_image.shape)
+        if my_image.shape[0] == 12288:
+            if images is None:
+                images = my_image
+            else:
+                images = np.hstack((images, my_image))
+
+    print(predict(images, parameters=parameters))
 """
 epoch = 0    epoch_cost = 1.8670177423592766
 epoch = 100    epoch_cost = 1.0305518833073701
