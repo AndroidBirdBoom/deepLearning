@@ -118,9 +118,69 @@ def pool_forward(A_prev, hparameters, mode="max"):
     cache = (A_prev, hparameters)
     return A, cache
 
+# TODO 未实现
+def conv_backward(dZ, cache):
+    """
+    Implement the backward propagation for a convolution function
+
+    Arguments:
+    dZ -- gradient of the cost with respect to the output of the conv layer (Z), numpy array of shape (m, n_H, n_W, n_C)
+    cache -- cache of values needed for the conv_backward(), output of conv_forward()
+
+    Returns:
+    dA_prev -- gradient of the cost with respect to the input of the conv layer (A_prev),
+               numpy array of shape (m, n_H_prev, n_W_prev, n_C_prev)
+    dW -- gradient of the cost with respect to the weights of the conv layer (W)
+          numpy array of shape (f, f, n_C_prev, n_C)
+    db -- gradient of the cost with respect to the biases of the conv layer (b)
+          numpy array of shape (1, 1, 1, n_C)
+    """
+
+    (m, n_H, n_W, n_C) = dZ.shape
+    (A_prev, W, b, hparameters) = cache
+    (m, n_H_prev, n_W_prev, n_C_prev) = A_prev.shape
+    (f, f, n_C_prev, n_C) = W.shape
+
+    pad = hparameters['pad']
+    stride = hparameters['stride']
+
+    dA_prev = np.zeros(A_prev.shape)
+    dW = np.zeros(W.shape)
+    db = np.zeros(b.shape)
+
+    # 根据pad和stride填充A_prev
+    A_prev_pad = zero_pad(A_prev, pad)
+
+    # 确定新的移动次数
 
 
+    for index in range(m):
 
+        for c in range(n_C):
+            for c_o in range(n_C_prev):
+                for h in range(f):
+                    for w in range(f):
+                        dW[h, w, c_o, c] = conv_single_step(
+                            A_prev_pad[index, h * stride:h * stride + n_H, w * stride:w * stride + n_W, c_o],
+                            dZ[index, :, :, c], 0)
+
+    return dA_prev,dW,db
+
+
+np.random.seed(1)
+# 初始化参数
+A_prev = np.random.randn(10, 4, 4, 3)
+W = np.random.randn(2, 2, 3, 8)
+b = np.random.randn(1, 1, 1, 8)
+hparameters = {"pad": 2, "stride": 1}
+
+# 前向传播
+Z, cache_conv = conv_forward(A_prev, W, b, hparameters)
+# 反向传播
+dA, dW, db = conv_backward(Z, cache_conv)
+print("dA_mean =", np.mean(dA))
+print("dW_mean =", np.mean(dW))
+print("db_mean =", np.mean(db))
 
 # z = np.arange(16).reshape(2, 2, 2, 2)
 # print(z, '\n\n')
